@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>Sales Dashboard – Q1 2026</title>
+
+<style>
+body { font-family: Arial, sans-serif; margin: 20px; }
+h1 { margin-bottom: 6px; }
+#breadcrumb { font-size: 13px; margin-bottom: 8px; }
+#breadcrumb span { cursor: pointer; color: #0078d4; }
+#breadcrumb span:hover { text-decoration: underline; }
+
+table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+th, td { border: 1px solid #ccc; padding: 6px; text-align: right; }
+th:first-child, td:first-child { text-align: left; }
+th { cursor: pointer; background: #f4f4f4; }
+tr.data-row:hover { background: #fafafa; cursor: pointer; }
+
+.negative { color: crimson; font-weight: bold; }
+.positive { color: darkgreen; font-weight: bold; }
+.total-row { background: #eee; font-weight: bold; }
+
+select { margin-left: 10px; }
+#status { margin-top: 6px; font-size: 12px; color: #555; }
+</style>
+</head>
+
+<body>
+
+<h1>Sales Dashboard – Q1 2026</h1>
+
+<div id="breadcrumb"></div>
+
+<div>
+Periodo:
+<select id="periodSelect" onchange="render()">
+  <option value="ALL">Q1 (tutti)</option>
+  <option value="2026-01">Gennaio</option>
+  <option value="2026-02">Febbraio</option>
+  <option value="2026-03">Marzo</option>
+</select>
+</div>
+
+<table id="table"></table>
+<div id="status">Caricamento dati…</div>
+
+<script>
+/* ============================================================
+   CONFIG
+   ============================================================ */
+const DATA_PATH = "data/sales_q1_2026.json";
+
+const LEVELS = ["Sektor", "Salesperson", "Customer"];
+
+/* ============================================================
+   STATE
+   ============================================================ */
+let rawData = [];
+let levelIndex = 0; // 0=Sektor, 1=Salesperson, 2=Customer
+let filters = {};   // { Sektor: "...", Salesperson: "..." }
+
+let sortCol = "delta";
+let sortAsc = false;
+
+/* ============================================================
+   LOAD JSON
+   ============================================================ */
+fetch(DATA_PATH)
+  .then(r => r.json())
+  .then(data => {
+    rawData = data;
+    document.getElementById("status").innerText =
+      `Righe caricate: ${rawData.length}`;
+    render();
+  })
+  .catch(err => {
+    document.getElementById("status").innerText =
+      "Errore caricamento JSON";
+    console.error(err);
+  });
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+function render() {
+  if (!rawData.length) return;
+
+  const level = LEVELS[levelIndex];
+  const period = document.getElementById("periodSelect").value;
+
+  let data = rawData.filter(r =>
+    (period === "ALL" || r.Period === period) &&
+    Object.keys(filters).every(f => r[f] === filters[f])
+  );
+
+  const map = {};
+  data.forEach(r => {
+    const key = r[level] ?? "(vuoto)";
+    const umsatz = Number(r.Umsatz) || 0;
+    const budget = Number(r.Budget) || 0;
+
+    if (!map[key]) map[key] = { umsatz: 0, budget: 0 };
+    map[key].umsatz += umsatz;
+    map[key].budget += budget;
+  });
+
+  let rows = Object.keys(map).map(k => ({
+    key: k,
+    umsatz: map[k].umsatz,
+    budget: map[k].budget,
+    delta: map[k].umsatz - map[k].budget
+  }));
+
+  rows.sort((a,b) =>
+    sortAsc ? a[sortCol] - b[sortCol] : b[sortCol] - a[sortCol]
+  );
+
+  const total = rows.reduce((acc, r) => {
+    acc.umsatz += r.umsatz;
+    acc.budget += r.budget;
+    acc.delta  += r.delta;
+    return acc;
+  }, { umsatz: 0, budget: 0, delta: 0 });
+
+  drawBreadcrumb();
+  drawTable(rows, total, level);
+}
+
+/* ============================================================
+   BREADCRUMB
+   ============================================================ */
+function drawBreadcrumb() {
+  const bc = document.getElementById("breadcrumb");
+  bc.innerHTML = "";
+
+  LEVELS.forEach((lvl, i) => {
+    if (i > levelIndex) return;
+
+    const span = document.createElement("span");
+    span.innerText = (i === 0 ? "Sektor" : filters[lvl]) || lvl;
+    span.onclick = () => {
+      levelIndex = i;
+      LEVELS.slice(i).forEach(l => delete filters[l]);
+      render();
+    };
+    bc.appendChild(span);
+
+    if (i < levelIndex) bc.appendChild(document.createTextNode(" › "));
+  });
+}
+
+/* ============================================================
+   TABLE
+   ============================================================ */
+function drawTable(rows, total, level) {
+  const t = document.getElementById("table");
+  t.innerHTML = "";
+
+  const h = document.createElement("tr");
+  h.innerHTML = `
+    <th>${level}</th>
+    <th onclick="setSort('umsatz')">Umsatz</th>
+    <th onclick="setSort('budget')">Budget</th>
+    <th onclick="setSort('delta')">Delta</th>`;
+  t.appendChild(h);
+
+  rows.forEach(r => {
+    const tr = document.createElement("tr");
+    tr.className = "data-row";
+    tr.innerHTML = `
+      <td>${r.key}</td>
+      <td>${r.umsatz.toLocaleString()}</td>
+      <td>${r.budget.toLocaleString()}</td>
+      <td class="${r.delta < 0 ? 'negative' : 'positive'}">
+        ${r.delta.toLocaleString()}
+      </td>`;
+    tr.onclick = () => drillDown(r.key);
+    t.appendChild(tr);
+  });
+
+  const trSum = document.createElement("tr");
+  trSum.className = "total-row";
+  trSum.innerHTML = `
+    <td>TOTALE</td>
+    <td>${total.umsatz.toLocaleString()}</td>
+    <td>${total.budget.toLocaleString()}</td>
+    <td class="${total.delta < 0 ? 'negative' : 'positive'}">
+      ${total.delta.toLocaleString()}
+    </td>`;
+  t.appendChild(trSum);
+}
+
+/* ============================================================
+   DRILL DOWN
+   ============================================================ */
+function drillDown(value) {
+  if (levelIndex >= LEVELS.length - 1) return;
+  filters[LEVELS[levelIndex]] = value;
+  levelIndex++;
+  render();
+}
+
+/* ============================================================
+   SORT
+   ============================================================ */
+function setSort(col) {
+  if (sortCol === col) {
+    sortAsc = !sortAsc;
+  } else {
+    sortCol = col;
+    sortAsc = false;
+  }
+  render();
+}
+</script>
+
+</body>
+</html>
