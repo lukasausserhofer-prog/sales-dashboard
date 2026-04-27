@@ -1,134 +1,321 @@
-<!DOCTYPE html>
-<html lang="it">
-<head>
-<meta charset="UTF-8">
-<title>Sales Dashboard 2026</title>
-<style>
-body { font-family: Arial, sans-serif; margin: 20px; }
-table { border-collapse: collapse; width: 100%; margin-top: 10px; }
-th, td { border: 1px solid #ccc; padding: 6px; }
-th { background: #f4f4f4; cursor: pointer; }
-tr:hover { background: #fafafa; }
-.negative { color: crimson; font-weight: bold; }
-.positive { color: darkgreen; font-weight: bold; }
-</style>
-</head>
-<body>
-
-<h1>Sales Dashboard 2026</h1>
-
-Periodo:
-<select id="periodSelect"></select>
-
-<table id="table"></table>
-
-<script>
-const DATA_PATH = "data/sales_q1_2026.json";
-const LEVELS = ["Sektor","Salesperson","Customer"];
-
-let rawData = [];
-let levelIndex = 0;
-let filters = {};
-let sortCol = "delta";
-let sortAsc = false;
-
-fetch(DATA_PATH)
-  .then(response => response.json())
-  .then(data => {
-    rawData = data;
-    initPeriods();
-    render();
-  })
-  .catch(err => alert("JSON Fehler: " + err));
-
-function initPeriods() {
-  const select = document.getElementById("periodSelect");
-  select.innerHTML = "";
-
-  const optAll = document.createElement("option");
-  optAll.value = "ALL";
-  optAll.textContent = "Alle Perioden";
-  select.appendChild(optAll);
-
-  const periods = Array.from(new Set(rawData.map(r => r.Period))).sort();
-
-  const names = {
-    "01":"Gennaio","02":"Febbraio","03":"Marzo","04":"Aprile",
-    "05":"Maggio","06":"Giugno","07":"Luglio","08":"Agosto",
-    "09":"Settembre","10":"Ottobre","11":"Novembre","12":"Dicembre"
-  };
-
-  periods.forEach(p => {
-    const opt = document.createElement("option");
-    opt.value = p;
-    const parts = p.split("-");
-    opt.textContent = names[parts[1]] + " " + parts[0];
-    select.appendChild(opt);
-  });
-
-  select.onchange = render;
+<!DOCTYPE html>();
+      };
+      bc.appendChild(span);
+      if (idx < levelIndex){
+        var sep = document.createElement("span");
+        sep.className = "sep";
+        sep.textContent = "›";
+        bc.appendChild(sep);
+      }
+    })(i);
+  }
 }
 
-function render() {
-  const table = document.getElementById("table");
-  table.innerHTML = "";
+// ============================================================
+// TABELLA
+// ============================================================
+function drawTable(rows, total, level){
+  var t = document.getElementById("table");
 
-  const period = document.getElementById("periodSelect").value;
-  const level = LEVELS[levelIndex];
+  function ind(col){
+    if (sortCol !== col) return "";
+    return sortAsc ? "▲" : "▼";
+  }
 
-  const data = rawData.filter(r =>
-    (period === "ALL" || r.Period === period) &&
-    Object.keys(filters).every(f => r[f] === filters[f])
-  );
+  var h = document.createElement("tr");
+  h.innerHTML =
+    "<th onclick=\"setSort('key')\">" + level + " <span class='sort-ind'>" + ind("key") + "</span></th>" +
+    "<th onclick=\"setSort('umsatz')\">Umsatz <span class='sort-ind'>" + ind("umsatz") + "</span></th>" +
+    "<th onclick=\"setSort('budget')\">Budget <span class='sort-ind'>" + ind("budget") + "</span></th>" +
+    "<th onclick=\"setSort('delta')\">Delta <span class='sort-ind'>" + ind("delta") + "</span></th>";
+  t.appendChild(h);
 
-  const map = {};
-  data.forEach(r => {
-    const key = r[level] || "(leer)";
-    if (!map[key]) map[key] = { u:0, b:0 };
-    map[key].u += Number(r.Umsatz)||0;
-    map[key].b += Number(r.Budget)||0;
-  });
-
-  const rows = Object.keys(map).map(k => ({
-    key:k, u:map[k].u, b:map[k].b, d:map[k].u - map[k].b
-  }));
-
-  rows.sort((a,b) => sortAsc ? a[sortCol]-b[sortCol] : b[sortCol]-a[sortCol]);
-
-  const head = document.createElement("tr");
-  head.innerHTML =
-    "<th>"+level+"</th>"+
-    "<th onclick='sort(\"u\")'>Umsatz</th>"+
-    "<th onclick='sort(\"b\")'>Budget</th>"+
-    "<th onclick='sort(\"d\")'>Delta</th>";
-  table.appendChild(head);
-
-  rows.forEach(r => {
-    const tr = document.createElement("tr");
+  for (var i=0; i<rows.length; i++){
+    var r = rows[i];
+    var tr = document.createElement("tr");
+    tr.className = "data-row";
     tr.innerHTML =
-      "<td>"+r.key+"</td>"+
-      "<td>"+r.u.toLocaleString()+"</td>"+
-      "<td>"+r.b.toLocaleString()+"</td>"+
-      "<td class='"+(r.d<0?"negative":"positive")+"'>"+
-      r.d.toLocaleString()+"</td>";
-    tr.onclick = () => drill(r.key);
-    table.appendChild(tr);
-  });
+      "<td>" + r.key + "</td>" +
+      "<td>" + r.umsatz.toLocaleString() + "</td>" +
+      "<td>" + r.budget.toLocaleString() + "</td>" +
+      "<td class=\"" + (r.delta < 0 ? "negative" : "positive") + "\">" +
+      r.delta.toLocaleString() + "</td>";
+    tr.onclick = function(val){ return function(){ drillDown(val); }; }(r.key);
+    t.appendChild(tr);
+  }
+
+  var trSum = document.createElement("tr");
+  trSum.className = "total-row";
+  trSum.innerHTML =
+    "<td>TOTALE</td>" +
+    "<td>" + total.u.toLocaleString() + "</td>" +
+    "<td>" + total.b.toLocaleString() + "</td>" +
+    "<td class=\"" + (total.d < 0 ? "negative" : "positive") + "\">" +
+    total.d.toLocaleString() + "</td>";
+  t.appendChild(trSum);
 }
 
-function drill(val) {
-  if (levelIndex >= LEVELS.length-1) return;
-  filters[LEVELS[levelIndex]] = val;
+// ============================================================
+// DRILL DOWN
+// ============================================================
+function drillDown(value){
+  if (levelIndex >= LEVELS.length - 1) return;
+  filters[LEVELS[levelIndex]] = value;
   levelIndex++;
   render();
 }
 
-function sort(col) {
-  sortCol = col;
-  sortAsc = !sortAsc;
+// ============================================================
+// SORT
+// ============================================================
+function setSort(col){
+  if (sortCol === col){
+    sortAsc = !sortAsc;
+  } else {
+    sortCol = col;
+    sortAsc = (col === "key");
+  }
   render();
 }
 </script>
 
 </body>
 </html>
+``
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>Sales Dashboard 2026</title>
+
+<style>
+body { font-family: Arial, sans-serif; margin: 20px; }
+h1 { margin-bottom: 6px; }
+
+#topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+#breadcrumb { font-size: 13px; }
+#breadcrumb span { cursor: pointer; color: #0078d4; }
+#breadcrumb span:hover { text-decoration: underline; }
+#breadcrumb .sep { margin: 0 6px; color: #777; }
+
+button { padding: 4px 10px; cursor: pointer; }
+button:disabled { opacity: 0.5; cursor: default; }
+
+table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+th, td { border: 1px solid #ccc; padding: 6px; text-align: right; }
+th:first-child, td:first-child { text-align: left; }
+
+th {
+  background: #f4f4f4;
+  cursor: pointer;
+  user-select: none;
+}
+
+tr.data-row:hover { background: #fafafa; cursor: pointer; }
+
+.negative { color: crimson; font-weight: bold; }
+.positive { color: darkgreen; font-weight: bold; }
+
+.total-row {
+  background: #eee;
+  font-weight: bold;
+}
+
+.sort-ind {
+  font-size: 11px;
+  margin-left: 6px;
+  color: #666;
+}
+
+#status { margin-top: 6px; font-size: 12px; color: #555; }
+</style>
+</head>
+
+<body>
+
+<h1>Sales Dashboard 2026</h1>
+
+<div id="topbar">
+  <button id="backBtn" onclick="goBack()" disabled>⬅ Indietro</button>
+
+  <div>
+    Periodo:
+    <select id="periodSelect"></select>
+  </div>
+
+  <div id="breadcrumb"></div>
+</div>
+
+<table id="table"></table>
+<div id="status">Caricamento dati…</div>
+
+<script>
+// ============================================================
+// CONFIG
+// ============================================================
+var DATA_PATH = "data/sales_q1_2026.json";
+var LEVELS = ["Sektor", "Salesperson", "Customer"];
+
+// ============================================================
+// STATE
+// ============================================================
+var rawData = [];
+var levelIndex = 0;
+var filters = {};
+var sortCol = "delta";   // key | umsatz | budget | delta
+var sortAsc = false;
+
+// ============================================================
+// LOAD JSON
+// ============================================================
+fetch(DATA_PATH)
+  .then(function(r){ return r.json(); })
+  .then(function(data){
+    rawData = data || [];
+    initPeriodSelect();
+    render();
+    document.getElementById("status").innerText =
+      "Righe caricate: " + rawData.length;
+  })
+  .catch(function(err){
+    document.getElementById("status").innerText = "Errore caricamento JSON";
+    console.error(err);
+  });
+
+// ============================================================
+// PERIOD SELECT DINAMICO
+// ============================================================
+function initPeriodSelect(){
+  var select = document.getElementById("periodSelect");
+  select.innerHTML = "";
+
+  var optAll = document.createElement("option");
+  optAll.value = "ALL";
+  optAll.textContent = "Tutte le periodi";
+  select.appendChild(optAll);
+
+  var map = {};
+  for (var i=0; i<rawData.length; i++){
+    if (rawData[i].Period) map[rawData[i].Period] = true;
+  }
+
+  var periods = Object.keys(map).sort();
+
+  var months = {
+    "01":"Gennaio","02":"Febbraio","03":"Marzo","04":"Aprile",
+    "05":"Maggio","06":"Giugno","07":"Luglio","08":"Agosto",
+    "09":"Settembre","10":"Ottobre","11":"Novembre","12":"Dicembre"
+  };
+
+  for (var j=0; j<periods.length; j++){
+    var p = periods[j];
+    var parts = p.split("-");
+    var opt = document.createElement("option");
+    opt.value = p;
+    opt.textContent = months[parts[1]] + " " + parts[0];
+    select.appendChild(opt);
+  }
+
+  select.onchange = render;
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+function render(){
+  var table = document.getElementById("table");
+  table.innerHTML = "";
+
+  var level = LEVELS[levelIndex];
+  var period = document.getElementById("periodSelect").value;
+
+  var filtered = [];
+  for (var i=0; i<rawData.length; i++){
+    var r = rawData[i];
+    if (!(period === "ALL" || r.Period === period)) continue;
+
+    var ok = true;
+    for (var f in filters){
+      if (r[f] !== filters[f]) { ok = false; break; }
+    }
+    if (ok) filtered.push(r);
+  }
+
+  var agg = {};
+  for (var k=0; k<filtered.length; k++){
+    var row = filtered[k];
+    var key = row[level] || "(vuoto)";
+    if (!agg[key]) agg[key] = { u:0, b:0 };
+    agg[key].u += Number(row.Umsatz) || 0;
+    agg[key].b += Number(row.Budget) || 0;
+  }
+
+  var rows = [];
+  for (var kk in agg){
+    rows.push({
+      key: kk,
+      umsatz: agg[kk].u,
+      budget: agg[kk].b,
+      delta: agg[kk].u - agg[kk].b
+    });
+  }
+
+  rows.sort(function(a,b){
+    if (sortCol === "key"){
+      return sortAsc
+        ? a.key.localeCompare(b.key)
+        : b.key.localeCompare(a.key);
+    }
+    return sortAsc
+      ? a[sortCol] - b[sortCol]
+      : b[sortCol] - a[sortCol];
+  });
+
+  var total = { u:0, b:0, d:0 };
+  for (var t=0; t<rows.length; t++){
+    total.u += rows[t].umsatz;
+    total.b += rows[t].budget;
+    total.d += rows[t].delta;
+  }
+
+  updateBackButton();
+  drawBreadcrumb();
+  drawTable(rows, total, level);
+
+  document.getElementById("status").innerText =
+    "Righe visibili: " + rows.length;
+}
+
+// ============================================================
+// NAVIGAZIONE INDIETRO
+// ============================================================
+function updateBackButton(){
+  document.getElementById("backBtn").disabled = (levelIndex === 0);
+}
+
+function goBack(){
+  if (levelIndex === 0) return;
+  levelIndex--;
+  delete filters[LEVELS[levelIndex]];
+  render();
+}
+
+function drawBreadcrumb(){
+  var bc = document.getElementById("breadcrumb");
+  bc.innerHTML = "";
+
+  for (var i=0; i<=levelIndex; i++){
+    (function(idx){
+      var span = document.createElement("span");
+      span.textContent = (idx === 0 ? "Sektor" : filters[LEVELS[idx]]);
+      span.onclick = function(){
+        levelIndex = idx;
+        for (var j=idx+1; j<LEVELS.length; j++){
+          delete filters[LEVELS[j]];
+        }
