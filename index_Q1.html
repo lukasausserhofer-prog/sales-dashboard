@@ -1,147 +1,24 @@
-<!DOCTYPE html>re caricamento JSON";
-    console.error(err);
-  });
-
-/* ============================================================
- PERIOD SELECT (DINAMICO)
-============================================================ */
-function initPeriodSelect() {
-  const select = document.getElementById("periodSelect");
-  select.innerHTML = "";
-
-  const optAll = document.createElement("option");
-  optAll.value = "ALL";
-  optAll.innerText = "Tutte le periodi";
-  select.appendChild(optAll);
-
-  const periods = [...new Set(rawData.map(r => r.Period))].sort();
-
-  const months = {
-    "01":"Gennaio","02":"Febbraio","03":"Marzo","04":"Aprile",
-    "05":"Maggio","06":"Giugno","07":"Luglio","08":"Agosto",
-    "09":"Settembre","10":"Ottobre","11":"Novembre","12":"Dicembre"
-  };
-
-  periods.forEach(p => {
-    const opt = document.createElement("option");
-    opt.value = p;
-    const [y,m] = p.split("-");
-    opt.innerText = months[m] ? `${months[m]} ${y}` : p;
-    select.appendChild(opt);
-  });
-
-  select.onchange = render;
-}
-
-/* ============================================================
- RENDER
-============================================================ */
-function render() {
-  if (!rawData.length) return;
-
-  const level = LEVELS[levelIndex];
-  const period = document.getElementById("periodSelect").value;
-
-  let data = rawData.filter(r =>
-    (period === "ALL" || r.Period === period) &&
-    Object.keys(filters).every(f => r[f] === filters[f])
-  );
-
-  const map = {};
-  data.forEach(r => {
-    const key = r[level] || "(vuoto)";
-    if (!map[key]) map[key] = { umsatz: 0, budget: 0 };
-    map[key].umsatz += Number(r.Umsatz) || 0;
-    map[key].budget += Number(r.Budget) || 0;
-  });
-
-  let rows = Object.keys(map).map(k => ({
-    key: k,
-    umsatz: map[k].umsatz,
-    budget: map[k].budget,
-    delta: map[k].umsatz - map[k].budget
-  }));
-
-  rows.sort((a, b) =>
-    sortAsc ? a[sortCol] - b[sortCol] : b[sortCol] - a[sortCol]
-  );
-
-  const total = rows.reduce((acc, r) => {
-    acc.umsatz += r.umsatz;
-    acc.budget += r.budget;
-    acc.delta += r.delta;
-    return acc;
-  }, { umsatz: 0, budget: 0, delta: 0 });
-
-  drawBreadcrumb();
-  drawTable(rows, total, level);
-}
-
-/* ============================================================
- BREADCRUMB
-============================================================ */
-function drawBreadcrumb() {
-  const bc = document.getElementById("breadcrumb");
-  bc.innerHTML = "";
-
-  LEVELS.forEach((lvl, i) => {
-    if (i > levelIndex) return;
-    const span = document.createElement("span");
-    span.innerText = (i === 0 ? "Sektor" : filters[lvl] || lvl);
-    span.onclick = () => {
-      levelIndex = i;
-      LEVELS.slice(i).forEach(l => delete filters[l]);
-      render();
-    };
-    bc.appendChild(span);
-    if (i < levelIndex) bc.appendChild(document.createTextNode(" › "));
-  });
-}
-
-/* ============================================================
- TABLE
-============================================================ */
-function drawTable(rows, total, level) {
-  const t = document.getElementById("table");
-  t.innerHTML = "";
-
-  const h = document.createElement("tr");
-  h.innerHTML = `
-    <th>${level}</th>
-    <th onclick="setSort('umsatz')">Umsatz</th>
-    <th onclick="setSort('budget')">Budget</th>
-    <th onclick="setSort('delta')">Delta</th>`;
-  t.appendChild(h);
-
-  rows.forEach(r => {
-    const tr = document.createElement("tr");
-    tr.className = "data-row";
-    tr.innerHTML = `
-      <td>${r.key}</td>
-      <td>${r.umsatz.toLocaleString()}</td>
-      <td>${r.budget.toLocaleString()}</td>
-      <td class="${r.delta < 0 ? 'negative' : 'positive'}">
-        ${r.delta.toLocaleString()}
-      </td>`;
+<!DOCTYPE html>() + "</td>" +
+      "<td class=\"" + (r.delta < 0 ? "negative" : "positive") + "\">" +
+      r.delta.toLocaleString() + "</td>";
     tr.onclick = () => drillDown(r.key);
     t.appendChild(tr);
   });
 
   const trSum = document.createElement("tr");
   trSum.className = "total-row";
-  trSum.innerHTML = `
-    <td>TOTALE</td>
-    <td>${total.umsatz.toLocaleString()}</td>
-    <td>${total.budget.toLocaleString()}</td>
-    <td class="${total.delta < 0 ? 'negative' : 'positive'}">
-      ${total.delta.toLocaleString()}
-    </td>`;
+  trSum.innerHTML =
+    "<td>TOTALE</td>" +
+    "<td>" + total.umsatz.toLocaleString() + "</td>" +
+    "<td>" + total.budget.toLocaleString() + "</td>" +
+    "<td class=\"" + (total.delta < 0 ? "negative" : "positive") + "\">" +
+    total.delta.toLocaleString() + "</td>";
   t.appendChild(trSum);
 }
 
-/* ============================================================
- DRILL DOWN
-============================================================ */
+// ============================================================
+// DRILL DOWN
+// ============================================================
 function drillDown(value) {
   if (levelIndex >= LEVELS.length - 1) return;
   filters[LEVELS[levelIndex]] = value;
@@ -149,9 +26,9 @@ function drillDown(value) {
   render();
 }
 
-/* ============================================================
- SORT
-============================================================ */
+// ============================================================
+// SORT
+// ============================================================
 function setSort(col) {
   if (sortCol === col) {
     sortAsc = !sortAsc;
@@ -206,31 +83,154 @@ Periodo:
 <div id="status">Caricamento dati…</div>
 
 <script>
-/* ============================================================
- CONFIG
-============================================================ */
+// ============================================================
+// CONFIG
+// ============================================================
 const DATA_PATH = "data/sales_q1_2026.json";
 const LEVELS = ["Sektor", "Salesperson", "Customer"];
 
-/* ============================================================
- STATE
-============================================================ */
+// ============================================================
+// STATE
+// ============================================================
 let rawData = [];
 let levelIndex = 0;
 let filters = {};
 let sortCol = "delta";
 let sortAsc = false;
 
-/* ============================================================
- LOAD DATA
-============================================================ */
+// ============================================================
+// LOAD JSON
+// ============================================================
 fetch(DATA_PATH)
   .then(r => r.json())
   .then(data => {
     rawData = data;
     initPeriodSelect();
     document.getElementById("status").innerText =
-      `Righe caricate: ${rawData.length}`;
+      "Righe caricate: " + rawData.length;
     render();
   })
   .catch(err => {
+    document.getElementById("status").innerText = "Errore caricamento JSON";
+    console.error(err);
+  });
+
+// ============================================================
+// PERIOD SELECT (DINAMICO)
+// ============================================================
+function initPeriodSelect() {
+  const select = document.getElementById("periodSelect");
+  select.innerHTML = "";
+
+  const optAll = document.createElement("option");
+  optAll.value = "ALL";
+  optAll.innerText = "Tutte le periodi";
+  select.appendChild(optAll);
+
+  const periods = [...new Set(rawData.map(r => r.Period))].sort();
+
+  const months = {
+    "01":"Gennaio","02":"Febbraio","03":"Marzo","04":"Aprile",
+    "05":"Maggio","06":"Giugno","07":"Luglio","08":"Agosto",
+    "09":"Settembre","10":"Ottobre","11":"Novembre","12":"Dicembre"
+  };
+
+  periods.forEach(p => {
+    const opt = document.createElement("option");
+    opt.value = p;
+    const parts = p.split("-");
+    const y = parts[0];
+    const m = parts[1];
+    opt.innerText = months[m] ? months[m] + " " + y : p;
+    select.appendChild(opt);
+  });
+
+  select.onchange = render;
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+function render() {
+  if (!rawData.length) return;
+
+  const level = LEVELS[levelIndex];
+  const period = document.getElementById("periodSelect").value;
+
+  let data = rawData.filter(r =>
+    (period === "ALL" || r.Period === period) &&
+    Object.keys(filters).every(f => r[f] === filters[f])
+  );
+
+  const map = {};
+  data.forEach(r => {
+    const key = r[level] || "(vuoto)";
+    if (!map[key]) map[key] = { umsatz: 0, budget: 0 };
+    map[key].umsatz += Number(r.Umsatz) || 0;
+    map[key].budget += Number(r.Budget) || 0;
+  });
+
+  let rows = Object.keys(map).map(k => ({
+    key: k,
+    umsatz: map[k].umsatz,
+    budget: map[k].budget,
+    delta: map[k].umsatz - map[k].budget
+  }));
+
+  rows.sort((a, b) =>
+    sortAsc ? a[sortCol] - b[sortCol] : b[sortCol] - a[sortCol]
+  );
+
+  const total = rows.reduce((acc, r) => {
+    acc.umsatz += r.umsatz;
+    acc.budget += r.budget;
+    acc.delta += r.delta;
+    return acc;
+  }, { umsatz: 0, budget: 0, delta: 0 });
+
+  drawBreadcrumb();
+  drawTable(rows, total, level);
+}
+
+// ============================================================
+// BREADCRUMB
+// ============================================================
+function drawBreadcrumb() {
+  const bc = document.getElementById("breadcrumb");
+  bc.innerHTML = "";
+
+  LEVELS.forEach((lvl, i) => {
+    if (i > levelIndex) return;
+    const span = document.createElement("span");
+    span.innerText = (i === 0 ? "Sektor" : filters[lvl]);
+    span.onclick = () => {
+      levelIndex = i;
+      LEVELS.slice(i).forEach(l => delete filters[l]);
+      render();
+    };
+    bc.appendChild(span);
+    if (i < levelIndex) bc.appendChild(document.createTextNode(" › "));
+  });
+}
+
+// ============================================================
+// TABLE
+// ============================================================
+function drawTable(rows, total, level) {
+  const t = document.getElementById("table");
+  t.innerHTML = "";
+
+  const h = document.createElement("tr");
+  h.innerHTML =
+    "<th>" + level + "</th>" +
+    "<th onclick=\"setSort('umsatz')\">Umsatz</th>" +
+    "<th onclick=\"setSort('budget')\">Budget</th>" +
+    "<th onclick=\"setSort('delta')\">Delta</th>";
+  t.appendChild(h);
+
+  rows.forEach(r => {
+    const tr = document.createElement("tr");
+    tr.className = "data-row";
+    tr.innerHTML =
+      "<td>" + r.key + "</td>" +
+      "<td>" + r.umsatz.toLocaleString() + "</td>" +
