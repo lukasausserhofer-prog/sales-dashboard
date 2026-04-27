@@ -1,88 +1,41 @@
-<!DOCTYPE html>
-<html lang="it">
-<head>
-<meta charset="UTF-8">
-<title>Sales Dashboard – Q1 2026</title>
-
-<style>
-body { font-family: Arial, sans-serif; margin: 20px; }
-h1 { margin-bottom: 6px; }
-#breadcrumb { font-size: 13px; margin-bottom: 8px; }
-#breadcrumb span { cursor: pointer; color: #0078d4; }
-#breadcrumb span:hover { text-decoration: underline; }
-
-table { border-collapse: collapse; width: 100%; margin-top: 10px; }
-th, td { border: 1px solid #ccc; padding: 6px; text-align: right; }
-th:first-child, td:first-child { text-align: left; }
-th { cursor: pointer; background: #f4f4f4; }
-tr.data-row:hover { background: #fafafa; cursor: pointer; }
-
-.negative { color: crimson; font-weight: bold; }
-.positive { color: darkgreen; font-weight: bold; }
-.total-row { background: #eee; font-weight: bold; }
-
-select { margin-left: 10px; }
-#status { margin-top: 6px; font-size: 12px; color: #555; }
-</style>
-</head>
-
-<body>
-
-<h1>Sales Dashboard – Q1 2026</h1>
-
-<div id="breadcrumb"></div>
-
-<div>
-Periodo:
-<select id="periodSelect" onchange="render()">
-  <option value="ALL">Q1 (tutti)</option>
-  <option value="2026-01">Gennaio</option>
-  <option value="2026-02">Febbraio</option>
-  <option value="2026-03">Marzo</option>
-</select>
-</div>
-
-<table id="table"></table>
-<div id="status">Caricamento dati…</div>
-
-<script>
-/* ============================================================
-   CONFIG
-   ============================================================ */
-const DATA_PATH = "data/sales_q1_2026.json";
-
-const LEVELS = ["Sektor", "Salesperson", "Customer"];
-
-/* ============================================================
-   STATE
-   ============================================================ */
-let rawData = [];
-let levelIndex = 0; // 0=Sektor, 1=Salesperson, 2=Customer
-let filters = {};   // { Sektor: "...", Salesperson: "..." }
-
-let sortCol = "delta";
-let sortAsc = false;
-
-/* ============================================================
-   LOAD JSON
-   ============================================================ */
-fetch(DATA_PATH)
-  .then(r => r.json())
-  .then(data => {
-    rawData = data;
-    document.getElementById("status").innerText =
-      `Righe caricate: ${rawData.length}`;
-    render();
-  })
-  .catch(err => {
-    document.getElementById("status").innerText =
-      "Errore caricamento JSON";
+<!DOCTYPE html>re caricamento JSON";
     console.error(err);
   });
 
 /* ============================================================
-   RENDER
-   ============================================================ */
+ PERIOD SELECT (DINAMICO)
+============================================================ */
+function initPeriodSelect() {
+  const select = document.getElementById("periodSelect");
+  select.innerHTML = "";
+
+  const optAll = document.createElement("option");
+  optAll.value = "ALL";
+  optAll.innerText = "Tutte le periodi";
+  select.appendChild(optAll);
+
+  const periods = [...new Set(rawData.map(r => r.Period))].sort();
+
+  const months = {
+    "01":"Gennaio","02":"Febbraio","03":"Marzo","04":"Aprile",
+    "05":"Maggio","06":"Giugno","07":"Luglio","08":"Agosto",
+    "09":"Settembre","10":"Ottobre","11":"Novembre","12":"Dicembre"
+  };
+
+  periods.forEach(p => {
+    const opt = document.createElement("option");
+    opt.value = p;
+    const [y,m] = p.split("-");
+    opt.innerText = months[m] ? `${months[m]} ${y}` : p;
+    select.appendChild(opt);
+  });
+
+  select.onchange = render;
+}
+
+/* ============================================================
+ RENDER
+============================================================ */
 function render() {
   if (!rawData.length) return;
 
@@ -96,13 +49,10 @@ function render() {
 
   const map = {};
   data.forEach(r => {
-    const key = r[level] ?? "(vuoto)";
-    const umsatz = Number(r.Umsatz) || 0;
-    const budget = Number(r.Budget) || 0;
-
+    const key = r[level] || "(vuoto)";
     if (!map[key]) map[key] = { umsatz: 0, budget: 0 };
-    map[key].umsatz += umsatz;
-    map[key].budget += budget;
+    map[key].umsatz += Number(r.Umsatz) || 0;
+    map[key].budget += Number(r.Budget) || 0;
   });
 
   let rows = Object.keys(map).map(k => ({
@@ -112,14 +62,14 @@ function render() {
     delta: map[k].umsatz - map[k].budget
   }));
 
-  rows.sort((a,b) =>
+  rows.sort((a, b) =>
     sortAsc ? a[sortCol] - b[sortCol] : b[sortCol] - a[sortCol]
   );
 
   const total = rows.reduce((acc, r) => {
     acc.umsatz += r.umsatz;
     acc.budget += r.budget;
-    acc.delta  += r.delta;
+    acc.delta += r.delta;
     return acc;
   }, { umsatz: 0, budget: 0, delta: 0 });
 
@@ -128,31 +78,29 @@ function render() {
 }
 
 /* ============================================================
-   BREADCRUMB
-   ============================================================ */
+ BREADCRUMB
+============================================================ */
 function drawBreadcrumb() {
   const bc = document.getElementById("breadcrumb");
   bc.innerHTML = "";
 
   LEVELS.forEach((lvl, i) => {
     if (i > levelIndex) return;
-
     const span = document.createElement("span");
-    span.innerText = (i === 0 ? "Sektor" : filters[lvl]) || lvl;
+    span.innerText = (i === 0 ? "Sektor" : filters[lvl] || lvl);
     span.onclick = () => {
       levelIndex = i;
       LEVELS.slice(i).forEach(l => delete filters[l]);
       render();
     };
     bc.appendChild(span);
-
     if (i < levelIndex) bc.appendChild(document.createTextNode(" › "));
   });
 }
 
 /* ============================================================
-   TABLE
-   ============================================================ */
+ TABLE
+============================================================ */
 function drawTable(rows, total, level) {
   const t = document.getElementById("table");
   t.innerHTML = "";
@@ -192,8 +140,8 @@ function drawTable(rows, total, level) {
 }
 
 /* ============================================================
-   DRILL DOWN
-   ============================================================ */
+ DRILL DOWN
+============================================================ */
 function drillDown(value) {
   if (levelIndex >= LEVELS.length - 1) return;
   filters[LEVELS[levelIndex]] = value;
@@ -202,8 +150,8 @@ function drillDown(value) {
 }
 
 /* ============================================================
-   SORT
-   ============================================================ */
+ SORT
+============================================================ */
 function setSort(col) {
   if (sortCol === col) {
     sortAsc = !sortAsc;
@@ -217,3 +165,72 @@ function setSort(col) {
 
 </body>
 </html>
+``
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>Sales Dashboard 2026</title>
+
+<style>
+body { font-family: Arial, sans-serif; margin: 20px; }
+h1 { margin-bottom: 6px; }
+#breadcrumb { font-size: 13px; margin-bottom: 8px; }
+#breadcrumb span { cursor: pointer; color: #0078d4; }
+#breadcrumb span:hover { text-decoration: underline; }
+table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+th, td { border: 1px solid #ccc; padding: 6px; text-align: right; }
+th:first-child, td:first-child { text-align: left; }
+th { cursor: pointer; background: #f4f4f4; }
+tr.data-row:hover { background: #fafafa; cursor: pointer; }
+.negative { color: crimson; font-weight: bold; }
+.positive { color: darkgreen; font-weight: bold; }
+.total-row { background: #eee; font-weight: bold; }
+select { margin-left: 10px; }
+#status { margin-top: 6px; font-size: 12px; color: #555; }
+</style>
+</head>
+
+<body>
+
+<h1>Sales Dashboard 2026</h1>
+
+<div id="breadcrumb"></div>
+
+<div>
+Periodo:
+<select id="periodSelect"></select>
+</div>
+
+<table id="table"></table>
+
+<div id="status">Caricamento dati…</div>
+
+<script>
+/* ============================================================
+ CONFIG
+============================================================ */
+const DATA_PATH = "data/sales_q1_2026.json";
+const LEVELS = ["Sektor", "Salesperson", "Customer"];
+
+/* ============================================================
+ STATE
+============================================================ */
+let rawData = [];
+let levelIndex = 0;
+let filters = {};
+let sortCol = "delta";
+let sortAsc = false;
+
+/* ============================================================
+ LOAD DATA
+============================================================ */
+fetch(DATA_PATH)
+  .then(r => r.json())
+  .then(data => {
+    rawData = data;
+    initPeriodSelect();
+    document.getElementById("status").innerText =
+      `Righe caricate: ${rawData.length}`;
+    render();
+  })
+  .catch(err => {
